@@ -4,3 +4,5 @@ chrome_user_data/
 *.log
 node_modules/
 .DS_Store
+
+.vercel
