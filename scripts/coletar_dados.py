@@ -6,7 +6,7 @@ from datetime import datetime
 from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from utils.database import add_lead, init_db, get_leads_count, lead_exists
+from utils.database import add_lead, init_db, get_leads_count, lead_exists, DB_PATH
 
 CIDADES_SP = [
     "São Paulo, SP",
