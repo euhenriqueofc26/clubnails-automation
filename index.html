@@ -22,7 +22,7 @@ body{background:#0a0a0f;color:#e8e8f0;font-family:system-ui,sans-serif;min-heigh
 <div id="app"></div>
 <script>
 const DB={get:k=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):null;}catch(e){return null;}},set:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}};
-let state={user:DB.get('automsg_session'),tab:0};
+let state={user:DB.get('automsg_session'),tab:0,loginMode:'login'};
 
 function render(){
   document.getElementById('app').innerHTML=state.user?renderApp():renderLogin();
@@ -37,9 +37,14 @@ function renderLogin(){
         <div style="color:#6b6b8a;font-size:13px;margin-top:8px">Plataforma de prospecção</div>
       </div>
       <div class="card" style="padding:28px">
+        <div style="display:flex;gap:6px;margin-bottom:22px;background:#1a1a26;padding:4px;border-radius:10px">
+          <button onclick="state.loginMode='login';render()" style="flex:1;padding:8px 0;background:${state.loginMode==='login'?'#12121a':'transparent'};border:${state.loginMode==='login'?'1px solid #2a2a3e':'none'};border-radius:8px;color:${state.loginMode==='login'?'#e8e8f0':'#6b6b8a'};font-size:13px;cursor:pointer">Entrar</button>
+          <button onclick="state.loginMode='register';render()" style="flex:1;padding:8px 0;background:${state.loginMode==='register'?'#12121a':'transparent'};border:${state.loginMode==='register'?'1px solid #2a2a3e':'none'};border-radius:8px;color:${state.loginMode==='register'?'#e8e8f0':'#6b6b8a'};font-size:13px;cursor:pointer">Criar conta</button>
+        </div>
+        ${state.loginMode==='register'?'<input class="inp" id="name" placeholder="Seu nome" style="margin-bottom:12px">':''}
         <input class="inp" id="email" placeholder="Email" style="margin-bottom:12px">
         <input class="inp" id="pass" type="password" placeholder="Senha" style="margin-bottom:12px">
-        <button class="btn btn-green" onclick="doLogin()">Entrar</button>
+        <button class="btn btn-green" onclick="doLogin()">${state.loginMode==='register'?'Criar conta':'Entrar'}</button>
       </div>
     </div>
   </div>`;
@@ -48,8 +53,15 @@ function renderLogin(){
 function doLogin(){
   const email=document.getElementById('email').value;
   const pass=document.getElementById('pass').value;
+  const name=document.getElementById('name')?.value;
   if(!email||!pass){alert('Preencha email e senha');return;}
   const users=DB.get('automsg_users')||{};
+  if(state.loginMode==='register'){
+    if(!name){alert('Preencha seu nome');return;}
+    if(users[email]){alert('Email já cadastrado');return;}
+    users[email]={name,email,pass,createdAt:new Date().toISOString()};
+    DB.set('automsg_users',users);
+  }
   const u=users[email];
   if(!u||u.pass!==pass){alert('Email ou senha incorretos');return;}
   state.user={name:u.name,email};DB.set('automsg_session',state.user);render();
