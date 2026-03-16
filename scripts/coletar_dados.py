@@ -2,12 +2,11 @@ import os
 import sys
 import time
 import random
-import json
 from datetime import datetime
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from utils.database import add_lead, init_db, get_leads_count
+from utils.database import add_lead, init_db, get_leads_count, lead_exists
 
 CIDADES_SP = [
     "São Paulo, SP",
@@ -29,8 +28,7 @@ CIDADES_SP = [
     "Itaquaquecetuba, SP",
     "Suzano, SP",
     "Poá, SP",
-    "Ferraz de Vasconcelos, SP",
-    "São Caetano do Sul, SP"
+    "Ferraz de Vasconcelos, SP"
 ]
 
 SEGMENTOS = [
@@ -45,230 +43,209 @@ SEGMENTOS = [
     "studio manicure",
     "salão de beleza",
     "unhas decoradas",
-    " manicure e pedicure",
-    "beleza e estética"
+    "manicure e pedicure",
+    "beleza e estética",
+    "studio beleza",
+    "espaço uñas"
 ]
 
-def delay(min_sec=1, max_sec=3):
+def delay(min_sec=1, max_sec=2):
     time.sleep(random.uniform(min_sec, max_sec))
 
-def init_browser():
+def limpar_telefone(tel):
+    if not tel:
+        return ''
+    return ''.join(c for c in str(tel) if c.isdigit())
+
+def coletar_segmento_cidade(segmento, cidade, max_leads=100):
+    print(f"\n  >> {segmento} em {cidade}...")
+    
+    total_novos = 0
+    duplicados = 0
+    
     playwright = sync_playwright().start()
     browser = playwright.chromium.launch(
         headless=False,
-        args=['--disable-blink-features=AutomationControlled', '--start-maximized']
+        args=['--disable-blink-features=AutomationControlled']
     )
     context = browser.new_context(
         viewport={'width': 1920, 'height': 1080},
-        user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
     )
-    return playwright, browser, context
-
-def scroll_page(page, max_scrolls=20):
-    print(f"    Rolando página ({max_scrolls} scrolls)...")
-    for _ in range(max_scrolls):
-        page.mouse.wheel(0, random.randint(1500, 2500))
-        delay(0.5, 1)
-        
-        try:
-            mais_btn = page.locator('button:has-text("Mais resultados")')
-            if mais_btn.is_visible():
-                mais_btn.click()
-                delay(1, 2)
-        except:
-            pass
-
-def extract_lead_details(page, nome):
-    lead = {
-        'nome': nome,
-        'telefone': '',
-        'endereco': '',
-        'instagram': '',
-        'site': '',
-        'nota': '',
-        'segmento': ''
-    }
+    page = context.new_page()
     
     try:
-        delay(1, 2)
-        
-        info_divs = page.locator('div[data-item-info]').all()
-        for div in info_divs:
-            try:
-                texto = div.inner_text()
-                if 'telefone' in texto.lower() or 'whatsapp' in texto.lower():
-                    spans = div.locator('span').all()
-                    for span in spans:
-                        t = span.inner_text()
-                        if any(c.isdigit() for c in t) and len(t) > 8:
-                            lead['telefone'] = t
-                            break
-            except:
-                pass
-        
-        links = page.locator('a[href*="instagram"]').all()
-        for link in links:
-            try:
-                href = link.get_attribute('href')
-                if href and 'instagram' in href.lower():
-                    lead['instagram'] = href
-                    break
-            except:
-                pass
-        
-        if not lead['instagram']:
-            links = page.locator('a').all()
-            for link in links:
-                try:
-                    texto = link.inner_text().lower()
-                    if 'instagram' in texto or '@' in texto:
-                        href = link.get_attribute('href')
-                        if href:
-                            lead['instagram'] = href
-                            break
-                except:
-                    pass
-        
-        links = page.locator('a[href*="website"]').all()
-        for link in links:
-            try:
-                href = link.get_attribute('href')
-                if href:
-                    lead['site'] = href
-                    break
-            except:
-                pass
-        
-        try:
-            nota = page.locator('span.fontTitleSmall').inner_text()
-            if nota:
-                lead['nota'] = nota
-        except:
-            pass
-        
-        try:
-            enderecos = page.locator('span[jpo="3"]').all()
-            if enderecos:
-                lead['endereco'] = enderecos[0].inner_text()
-        except:
-            pass
-            
-    except Exception as e:
-        print(f"    Erro ao extrair detalhes: {e}")
-    
-    return lead
-
-def collect_from_maps(segmento, cidade, max_leads=100):
-    print(f"\n{'='*50}")
-    print(f"Coletando: {segmento} em {cidade}")
-    print(f"{'='*50}")
-    
-    init_db()
-    leads_coletados = 0
-    
-    try:
-        playwright, browser, context = init_browser()
-        page = context.new_page()
-        
-        search = f"{segmento} em {cidade}"
+        search = f"{segmento} {cidade}"
         url = f"https://www.google.com/maps/search/{search.replace(' ', '+')}"
         
-        print(f"  Abrindo: {url}")
-        page.goto(url, wait_until="networkidle")
+        page.goto(url, wait_until="networkidle", timeout=60000)
         delay(3, 5)
         
-        scroll_page(page, max_scrolls=25)
+        scrolls = 0
+        max_scrolls = 30
         
-        listings = page.locator('div[role="article"]').all()
-        print(f"  Encontrados: {len(listings)} estabelecimentos")
-        
-        for i, listing in enumerate(listings[:max_leads]):
+        while scrolls < max_scrolls:
+            page.mouse.wheel(0, random.randint(2000, 3000))
+            delay(1, 2)
+            scrolls += 1
+            
             try:
-                nome = ""
+                mais = page.locator('button:has-text("Mais resultados")')
+                if mais.is_visible():
+                    mais.click()
+                    delay(1, 2)
+            except:
+                pass
+        
+        delay(2, 3)
+        
+        listings = page.locator('a[href*="/maps/place/"]').all()
+        print(f"    Encontrados {len(listings)} links")
+        
+        for listing in listings[:max_leads]:
+            try:
+                href = listing.get_attribute('href')
+                if not href or '/maps/place/' not in href:
+                    continue
+                
+                page.goto(href, wait_until="networkidle", timeout=30000)
+                delay(2, 3)
+                
+                nome = ''
                 try:
-                    nome = listing.locator('div.fontTitleSmall').inner_text(timeout=2000)
+                    nome = page.locator('h1').inner_text(timeout=5000)
                 except:
+                    pass
+                
+                if not nome:
                     try:
-                        nome = listing.locator('h3').inner_text(timeout=2000)
+                        nome = page.locator('div[data-item-id="title"]').inner_text(timeout=3000)
                     except:
                         continue
                 
-                if not nome:
-                    continue
+                telefone = ''
+                instagram = ''
+                site = ''
+                endereco = ''
                 
-                print(f"  [{i+1}] {nome[:40]}...")
+                botoes_tel = page.locator('button[aria-label*="Telefone"], button[aria-label*="Phone"]').all()
+                for btn in botoes_tel[:3]:
+                    try:
+                        btn.click()
+                        delay(1, 1.5)
+                        tel_text = btn.inner_text()
+                        if any(c.isdigit() for c in tel_text):
+                            telefone = limpar_telefone(tel_text)
+                            break
+                    except:
+                        pass
+                
+                if not telefone:
+                    spans = page.locator('span').all()
+                    for span in spans[:50]:
+                        try:
+                            txt = span.inner_text()
+                            if len(txt) >= 10 and len(txt) <= 15 and txt.replace(' ', '').replace('-', '').replace('(', '').replace(')', '').isdigit():
+                                telefone = limpar_telefone(txt)
+                                break
+                        except:
+                            pass
+                
+                links = page.locator('a[href*="instagram.com"]').all()
+                for link in links[:3]:
+                    try:
+                        href = link.get_attribute('href')
+                        if href:
+                            instagram = href
+                            break
+                    except:
+                        pass
+                
+                if not instagram:
+                    links = page.locator('a').all()
+                    for link in links[:30]:
+                        try:
+                            txt = link.inner_text().lower()
+                            if 'instagram' in txt or (txt.startswith('@') and len(txt) > 3):
+                                href = link.get_attribute('href')
+                                if href and 'http' in href:
+                                    instagram = href
+                                    break
+                        except:
+                            pass
                 
                 try:
-                    listing.click()
-                    delay(2, 3)
+                    ends = page.locator('span[jpo="3"]').all()
+                    if ends:
+                        endereco = ends[0].inner_text()
                 except:
                     pass
                 
-                lead = extract_lead_details(page, nome)
-                lead['segmento'] = segmento
-                lead['fonte'] = f"Google Maps - {cidade}"
-                
-                print(f"      Tel: {lead['telefone'][:20] if lead['telefone'] else 'N/A'}")
-                print(f"      Insta: {lead['instagram'][:30] if lead['instagram'] else 'N/A'}")
-                
-                add_lead(
-                    lead['nome'],
-                    lead['telefone'],
-                    lead['endereco'],
-                    lead['segmento'],
-                    lead['fonte']
-                )
-                
-                leads_coletados += 1
+                if nome and telefone:
+                    if lead_exists(telefone):
+                        duplicados += 1
+                        print(f"    Duplicado: {nome[:30]}...")
+                        continue
+                    
+                    add_lead(nome, telefone, endereco, segmento, f"Google Maps - {cidade}", instagram)
+                    total_novos += 1
+                    print(f"    ✓ {nome[:35]}... - {telefone}")
+                elif nome:
+                    print(f"    - {nome[:35]}... (sem telefone)")
                 
                 delay(1, 2)
                 
-                try:
-                    page.keyboard.press('Escape')
-                    delay(0.5, 1)
-                except:
-                    pass
-                    
             except Exception as e:
-                print(f"    Erro: {e}")
                 continue
         
-        browser.close()
-        playwright.stop()
-        
     except Exception as e:
-        print(f"  Erro geral: {e}")
+        print(f"    Erro: {e}")
     
-    return leads_coletados
+    finally:
+        try:
+            browser.close()
+        except:
+            pass
+        try:
+            playwright.stop()
+        except:
+            pass
+    
+    return total_novos, duplicados
 
 def run_full_collection():
     print(f"\n{'#'*60}")
-    print("# COLETA COMPLETA DE LEADS - CLUB NAILS BRASIL")
+    print("# COLETA DE LEADS - CLUB NAILS BRASIL")
+    print(f"# Sem duplicatas - Apenas telefones únicos")
     print(f"{'#'*60}")
     print(f"Início: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"Segmentos: {len(SEGMENTOS)}")
-    print(f"Cidades: {len(CIDADES_SP)}")
+    
+    if os.path.exists(DB_PATH):
+        os.remove(DB_PATH)
     
     init_db()
     
-    total_geral = 0
+    total_novos = 0
+    total_duplicados = 0
     
     for segmento in SEGMENTOS:
         for cidade in CIDADES_SP:
             try:
-                total = collect_from_maps(segmento, cidade, max_leads=50)
-                total_geral += total
+                novos, dup = coletar_segmento_cidade(segmento, cidade, max_leads=80)
+                total_novos += novos
+                total_duplicados += dup
                 
                 atual = get_leads_count()
-                print(f"\n  >> Total acumulado: {atual} leads")
+                print(f"\n    >> Total: {atual} leads | Novos: {total_novos} | Duplicados: {total_duplicados}")
                 
             except Exception as e:
-                print(f"Erro em {segmento}/{cidade}: {e}")
+                print(f"    Erro em {segmento}/{cidade}: {e}")
                 continue
     
     print(f"\n{'#'*60}")
     print(f"COLETA FINALIZADA!")
-    print(f"Total de leads coletados: {total_geral}")
+    print(f"Total novos: {total_novos}")
+    print(f"Total duplicados ignorados: {total_duplicados}")
     print(f"Total no banco: {get_leads_count()}")
     print(f"{'#'*60}")
 

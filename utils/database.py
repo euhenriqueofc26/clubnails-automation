@@ -14,7 +14,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS leads (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nome TEXT NOT NULL,
-            telefone TEXT,
+            telefone TEXT UNIQUE,
             endereco TEXT,
             instagram TEXT,
             site TEXT,
@@ -28,14 +28,35 @@ def init_db():
     conn.close()
 
 def add_lead(nome, telefone='', endereco='', segmento='Unhas', fonte='Google Maps', instagram='', site='', nota=None):
+    if not telefone:
+        return False
+    
+    telefone_limpo = ''.join(c for c in str(telefone) if c.isdigit())
+    
     conn = get_connection()
-    conn.execute(
-        '''INSERT INTO leads (nome, telefone, endereco, instagram, site, nota, segmento, fonte) 
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
-        (nome, telefone, endereco, instagram, site, nota, segmento, fonte)
-    )
-    conn.commit()
+    try:
+        conn.execute(
+            '''INSERT OR IGNORE INTO leads (nome, telefone, endereco, instagram, site, nota, segmento, fonte) 
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+            (nome, telefone_limpo, endereco, instagram, site, nota, segmento, fonte)
+        )
+        conn.commit()
+        resultado = conn.total_changes > 0
+        conn.close()
+        return resultado
+    except:
+        conn.close()
+        return False
+
+def lead_exists(telefone):
+    if not telefone:
+        return False
+    telefone_limpo = ''.join(c for c in str(telefone) if c.isdigit())
+    conn = get_connection()
+    cursor = conn.execute('SELECT id FROM leads WHERE telefone = ?', (telefone_limpo,))
+    existe = cursor.fetchone() is not None
     conn.close()
+    return existe
 
 def get_all_leads():
     conn = get_connection()
@@ -58,11 +79,16 @@ def export_to_csv(filepath):
         writer = csv.writer(f)
         writer.writerow(['ID', 'Nome', 'Telefone', 'WhatsApp', 'Endereco', 'Instagram', 'Site', 'Nota', 'Segmento', 'Fonte', 'Data_Coleta'])
         for lead in leads:
+            tel = lead['telefone'] or ''
+            if tel:
+                tel_formatado = 'https://wa.me/55' + tel if not tel.startswith('55') else 'https://wa.me/' + tel
+            else:
+                tel_formatado = ''
             writer.writerow([
                 lead['id'],
                 lead['nome'],
-                lead['telefone'],
-                'https://wa.me/' + lead['telefone'].replace('+', '').replace(' ', '').replace('-', '').replace('(', '').replace(')', '') if lead['telefone'] else '',
+                tel,
+                tel_formatado,
                 lead['endereco'],
                 lead['instagram'],
                 lead['site'],
