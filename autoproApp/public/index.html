@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoMsg Pro</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0a0a0f;color:#e8e8f0;font-family:system-ui,sans-serif;min-height:100vh}
+input,textarea,select{background:#1a1a26;border:1px solid #2a2a3e;border-radius:10px;color:#e8e8f0;font-family:inherit;font-size:14px;padding:10px 13px;outline:none;width:100%;box-sizing:border-box;transition:border-color .2s}
+input:focus,textarea:focus,select:focus{border-color:#00e5a0}
+input::placeholder,textarea::placeholder{color:#3a3a5a}
+textarea{resize:vertical}
+input[type=range]{-webkit-appearance:none;background:transparent;padding:0;cursor:pointer;width:100%}
+input[type=range]::-webkit-slider-runnable-track{height:4px;background:#2a2a3e;border-radius:4px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;background:#00e5a0;border-radius:50%;margin-top:-7px}
+input[type=file]{font-size:12px;color:#6b6b8a}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:#2a2a3e;border-radius:4px}
+.card{background:#12121a;border:1px solid #2a2a3e;border-radius:16px;padding:18px;margin-bottom:12px}
+.card-title{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b6b8a;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.card-title span{width:22px;height:22px;background:#00e5a018;border:1px solid #00e5a035;color:#00e5a0;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px}
+.label{font-size:11px;font-weight:600;color:#6b6b8a;letter-spacing:.07em;text-transform:uppercase;margin-bottom:6px}
+.btn{display:block;width:100%;border-radius:11px;padding:11px 16px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;text-align:center;border:none}
+.btn-green{background:#00e5a0;color:#0a0f0a}
+.btn-purple{background:linear-gradient(135deg,#1a1a2e,#16213e);color:#a78bfa;border:1px solid #3a3a5e}
+.btn-ghost{background:transparent;color:#e8e8f0;border:1px solid #2a2a3e}
+.btn-danger{background:transparent;color:#ff4d6d;border:1px solid #ff4d6d40}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn-row{display:flex;gap:8px}
+.lead-item{background:#1a1a26;border:1px solid #2a2a3e;border-radius:10px;padding:9px 12px;margin-bottom:7px;display:flex;justify-content:space-between;align-items:center}
+.lead-name{font-size:13px;font-weight:500}
+.lead-phone{font-size:11px;color:#6b6b8a;margin-top:2px}
+.lead-actions{display:flex;gap:4px}
+.lead-actions button{width:auto;padding:4px 8px;font-size:11px;background:none;border:1px solid #2a2a3e;color:#6b6b8a}
+.lead-actions button.delete{border-color:#ff4d6d40;color:#ff4d6d}
+.results{max-height:300px;overflow-y:auto}
+.stats{background:#1a1a26;border:1px solid #2a2a3e;border-radius:12px;padding:14px;margin-top:12px}
+.login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.login-box{width:100%;max-width:400px}
+.login-title{text-align:center;margin-bottom:28px}
+.login-subtitle{font-size:40px;font-weight:900}
+.login-desc{color:#6b6b8a;font-size:13px;margin-top:8px}
+.login-form{background:#12121a;border:1px solid #2a2a3e;border-radius:20px;padding:28px}
+.login-tabs{display:flex;gap:6px;margin-bottom:22px;background:#1a1a26;padding:4px;border-radius:10px}
+.login-tab{flex:1;padding:8px 0;background:transparent;color:#6b6b8a;border:none;border-radius:8px;font-size:13px;cursor:pointer}
+.login-tab.active{background:#12121a;color:#e8e8f0}
+.hidden{display:none}
+.preview{background:#0d1117;border:1px solid #1e2a3a;border-radius:12px;padding:14px}
+.preview-msg{background:#005c4b;border-radius:12px 12px 2px 12px;padding:11px 14px;font-size:13px;line-height:1.6;white-space:pre-wrap;max-width:85%;margin-left:auto}
+.slider-container{margin-bottom:16px}
+.slider-value{color:#00e5a0;font-size:16px;font-weight:800}
+.progress-bar{height:8px;background:#2a2a3e;border-radius:8px;overflow:hidden;margin-bottom:12px}
+.progress-fill{height:100%;background:#00e5a0;border-radius:8px;transition:width .5s}
+.log-container{background:#050508;border:1px solid #2a2a3e;border-radius:10px;padding:12px;font-family:monospace;font-size:12px;height:140px;overflow-y:auto}
+.log-item{display:flex;gap:8px;margin-bottom:3px}
+.log-time{color:#6b6b8a}
+.log-ok{color:#00e5a0}
+.log-err{color:#ff4d6d}
+.log-info{color:#ffb347}
+.error{background:#ff4d6d15;border:1px solid #ff4d6d40;border-radius:8px;padding:8px 12px;font-size:13px;color:#ff4d6d;margin-bottom:14px}
+.targets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.target-item{padding:6px 12px;border-radius:100px;border:1px solid #2a2a3e;background:#1a1a26;color:#6b6b8a;font-size:12px;cursor:pointer}
+.target-item.active{background:#00e5a018;border-color:#00e5a035;color:#00e5a0}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+const G={bg:"#0a0a0f",s1:"#12121a",s2:"#1a1a26",bd:"#2a2a3e",green:"#00e5a0",gdim:"#00e5a018",gglow:"#00e5a035",text:"#e8e8f0",muted:"#6b6b8a",danger:"#ff4d6d",warn:"#ffb347",purple:"#a78bfa"};
+const TARGETS=[{e:"💅",l:"Unhas",v:"Studios de unhas"},{e:"✨",l:"Estética",v:"Studios de estética"},{e:"💇",l:"Salões",v:"Salões de beleza"},{e:"🪷",l:"Depilação",v:"Clínicas de depilação"},{e:"✂️",l:"Barbearias",v:"Barbearias"},{e:"🎨",l:"Tatuagem",v:"Tatuadores"},{e:"🏋️",l:"Personal",v:"Personal trainers"},{e:"🥗",l:"Nutrição",v:"Nutricionistas"},{e:"🧠",l:"Psicologia",v:"Psicólogos"},{e:"🦷",l:"Dentistas",v:"Dentistas"},{e:"🏠",l:"Arquitetura",v:"Arquitetos"},{e:"⚖️",l:"Advocacia",v:"Advogados"}];
+const DB={get:k=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):null;}catch(e){return null;}},set:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}};
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const el=(t,p={},c=[])=>{const e=document.createElement(t);Object.entries(p).forEach(([k,v])=>{if(k==="className")e.className=v;else if(k==="onClick")e.onclick=v;else if(k==="style")Object.assign(e.style,v);else if(k.startsWith("on"))e[k]=v;else e.setAttribute(k,v);});c.forEach(o=>{if(typeof o==="string")e.appendChild(document.createTextNode(o));else if(o)e.appendChild(o);});return e;};
+
+async function callAI(prompt){
+  const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:prompt}]})});
+  if(!r.ok){const e=await r.json();throw new Error(e.error?.message||`Erro ${r.status}`);}
+  const d=await r.json();return d.content[0].text.trim();
+}
+function fmtPhone(r){let n=String(r).replace(/\D/g,"");if(!n.startsWith("55"))n="55"+n;return n;}
+function phoneKey(lead){const k=Object.keys(lead);return k.find(x=>["telefone","phone","celular","whatsapp","numero","tel"].some(p=>x.toLowerCase().includes(p)))||k[0];}
+function dlCSV(leads,name){if(!leads.length)return;const h=Object.keys(leads[0]).join(",");const b=leads.map(l=>Object.values(l).map(v=>`"${v}"`).join(",")).join("\n");const blob=new Blob([h+"\n"+b],{type:"text/csv;charset=utf-8;"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`${name}.csv`;a.click();}
+
+let state={user:null,tab:0,leads:[],csvLeads:[],mode:"login",rawText:"",extractedLeads:[],bizName:"",bizSeg:"",bizDesc:"",selT:"",custT:"",message:"",qty:30,pause:60,running:false,sent:0,logs:[]};
+
+function render(){
+  const app=document.getElementById("app");app.innerHTML="";
+  if(!state.user){app.appendChild(renderLogin());return;}
+  app.appendChild(el("div",{style:{background:G.bg,minHeight:"100vh",color:G.text}},[renderHeader(),renderContent()]));
+}
+
+function renderLogin(){
+  const nameInp=el("input",{placeholder:"Seu nome",id:"login-name"});
+  const emailInp=el("input",{type:"email",placeholder:"seu@email.com",id:"login-email"});
+  const passInp=el("input",{type:"password",placeholder:"••••••••",id:"login-pass",onKeyDown:e=>e.key==="Enter"&&handleLogin()});
+  const errorDiv=el("div",{className:"hidden",id:"login-error"});
+  return el("div",{className:"login-screen"},[el("div",{className:"login-box"},[el("div",{className:"login-title"},[el("div",{className:"login-subtitle"},[el("span",{},"Auto"),el("span",{style:{color:G.green}},"Msg"),el("span",{style:{fontSize:16,color:G.muted,fontWeight:400}}," Pro")]),el("div",{className:"login-desc"},"Plataforma de prospecção inteligente")]),el("div",{className:"login-form"},[el("div",{className:"login-tabs"},[el("button",{className:"login-tab"+(state.mode==="login"?" active":""),onClick:()=>{state.mode="login";render();}},"Entrar"),el("button",{className:"login-tab"+(state.mode==="register"?" active":""),onClick:()=>{state.mode="register";render();}},"Criar conta")]),state.mode==="register"?el("div",{style:{marginBottom:14}},[el("div",{className:"label"},"Nome completo"),nameInp]):null,el("div",{style:{marginBottom:14}},[el("div",{className:"label"},"Email"),emailInp]),el("div",{style:{marginBottom:20}},[el("div",{className:"label"},"Senha"),passInp]),errorDiv,el("button",{className:"btn btn-green",onClick:handleLogin},"→ Entrar")])])]);
+}
+
+function handleLogin(){
+  const email=document.getElementById("login-email").value;
+  const pass=document.getElementById("login-pass").value;
+  const name=document.getElementById("login-name")?.value;
+  const errorDiv=document.getElementById("login-error");
+  if(!email||!pass){errorDiv.className="error";errorDiv.textContent="Preencha email e senha.";return;}
+  if(state.mode==="register"&&!name){errorDiv.className="error";errorDiv.textContent="Preencha seu nome.";return;}
+  const users=DB.get("automsg_users")||{};
+  if(state.mode==="register"){
+    if(users[email]){errorDiv.className="error";errorDiv.textContent="Email já cadastrado.";return;}
+    users[email]={name,email,pass,createdAt:new Date().toISOString()};DB.set("automsg_users",users);
+  }else{
+    const u=users[email];
+    if(!u||u.pass!==pass){errorDiv.className="error";errorDiv.textContent="Email ou senha incorretos.";return;}
+  }
+  state.user={name:users[email]?.name||name,email};render();
+}
+
+function renderHeader(){
+  return el("div",{style:{maxWidth:720,margin:"0 auto",padding:"20px 14px 0"}},[el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}},[el("div",{},[el("div",{style:{fontSize:28,fontWeight:900}},"Auto",el("span",{style:{color:G.green}},"Msg"),el("span",{style:{fontSize:13,color:G.muted,fontWeight:400}}," Pro")),el("div",{style:{fontSize:12,color:G.muted,marginTop:2}},"Olá, "+state.user.name+" 👋")]),el("div",{style:{display:"flex",gap:8}},[el("button",{style:{background:"none",border:`1px solid ${G.bd}`,color:G.muted,borderRadius:8,padding:"6px 12px",cursor:"pointer",fontSize:14},onClick:()=>{state.tab=3;render();}},"⚙️"),el("button",{style:{background:"none",border:`1px solid ${G.bd}`,color:G.muted,borderRadius:8,padding:"6px 12px",cursor:"pointer",fontSize:12},onClick:()=>{state.user=null;render();}},"Sair")])]),el("div",{style:{display:"flex",gap:6,marginBottom:16}},[0,1,2].map(i=>el("button",{style:{flex:1,padding:"10px 0",background:state.tab===i?G.green:G.s1,color:state.tab===i?"#0a0f0a":G.muted,border:state.tab===i?"none":`1px solid ${G.bd}`,borderRadius:12,fontWeight:state.tab===i?700:400,fontSize:12,cursor:"pointer"},["📋 Coletor","📤 Disparador","📊 Histórico"][i]),{onClick:()=>{state.tab=i;render();}}))])]);
+}
+
+function renderContent(){
+  if(state.tab===0)return renderColetor();
+  if(state.tab===1)return renderDisparador();
+  if(state.tab===2)return renderHistorico();
+  if(state.tab===3)return renderConfig();
+}
+
+function renderConfig(){
+  return el("div",{style:{maxWidth:720,margin:"0 auto",padding:"20px 14px"}},[el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}},[el("div",{style:{fontSize:24,fontWeight:900}},"⚙️ Configurações"),el("button",{style:{background:"none",border:`1px solid ${G.bd}`,color:G.muted,borderRadius:8,padding:"8px 16px",cursor:"pointer",fontSize:14},onClick:()=>{state.tab=0;render();}},"✕ Voltar")]),el("div",{className:"card"},[el("div",{className:"card-title",style:{marginBottom:14}},"👤 Minha Conta"),el("div",{style:{marginBottom:12}},[el("div",{className:"label"},"Nome"),el("div",{},state.user.name)]),el("div",{style:{marginBottom:12}},[el("div",{className:"label"},"Email"),el("div",{},state.user.email)])]),el("div",{className:"card"},[el("div",{className:"card-title"},"🔑 API Key")])]);
+}
+
+function renderColetor(){
+  return el("div",{style:{maxWidth:720,margin:"0 auto",padding:"0 14px"}},[el("div",{className:"card"},[el("div",{className:"card-title"},[el("span",{},"1"),"Colar Dados do Google Maps"]),el("div",{className:"label"},"Texto copiado do Maps"),el("textarea",{rows:7,placeholder:"Cole aqui os dados do Maps...",value:state.rawText,onInput:e=>state.rawText=e.target.value}),el("div",{className:"btn-row",style:{marginTop:12}},[el("button",{className:"btn btn-ghost",style:{flex:1},onClick:()=>window.open("https://www.google.com/maps/search/","_blank")},"🗺 Abrir Maps"),el("button",{className:"btn btn-purple",style:{flex:2},onClick:extrairLeads},"✨ Extrair com IA")])]),state.extractedLeads.length>0?el("div",{className:"card"},[el("div",{className:"card-title"},[el("span",{},"2"),state.extractedLeads.length+" Leads Encontrados"]),el("div",{className:"results"},state.extractedLeads.map((lead,i)=>el("div",{className:"lead-item"},[el("div",{},[el("div",{className:"lead-name"},lead.nome),el("div",{className:"lead-phone"},lead.telefone)])]))),el("div",{className:"btn-row",style:{marginTop:12}},[el("button",{className:"btn btn-ghost",style:{flex:1},onClick:()=>dlCSV(state.extractedLeads,"leads")},"⬇ Baixar CSV"),el("button",{className:"btn btn-green",style:{flex:2},onClick:usarNoDisparador},"✅ Usar no Disparador →")])])):null,state.leads.length>0?el("div",{className:"card"},[el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},[el("span",{style:{fontSize:13,color:G.muted}},"📋 "+state.leads.length+" leads na lista"),el("div",{style:{display:"flex",gap:8}},[el("button",{style:{background:G.s2,border:`1px solid ${G.bd}`,color:G.text,borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:12},onClick:()=>dlCSV(state.leads,"leads")},"⬇ CSV"),el("button",{style:{background:"none",border:"1px solid #ff4d6d40",color:G.danger,borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:12},onClick:()=>{if(confirm("Limpar?"))state.leads=[];render();}},"🗑")])])])):null]);
+}
+
+async function extrairLeads(){
+  if(!state.rawText.trim()){alert("Cole o texto do Google Maps primeiro.");return;}
+  try{
+    const p="Analise o texto e extraia todos os negócios. Retorne SOMENTE JSON: [{\"nome\":\"Nome\",\"telefone\":\"DDD+número\"}]. Se não tiver telefone use \"sem telefone\". Remova formatação. APENAS JSON.\nTexto:\n"+state.rawText;
+    let t=await callAI(p);t=t.replace(/```json|```/g,"").trim();state.extractedLeads=JSON.parse(t);render();
+  }catch(e){alert("Erro: "+e.message);}
+}
+function usarNoDisparador(){
+  const valid=state.extractedLeads.filter(e=>e.telefone!=="sem telefone");
+  const ex=new Set(state.leads.map(l=>l.telefone));
+  const nov=valid.filter(n=>!ex.has(n.telefone));
+  state.leads=[...state.leads,...nov];state.extractedLeads=[];state.rawText="";state.tab=1;
+  render();alert("✅ "+nov.length+" leads enviados!");
+}
+
+function renderDisparador(){
+  const all=[...state.leads,...state.csvLeads];
+  return el("div",{style:{maxWidth:720,margin:"0 auto",padding:"0 14px"}},[el("div",{className:"card"},[el("div",{className:"card-title"},[el("span",{},"1"),"Seu Negócio"]),el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}},[el("div",{},[el("div",{className:"label"},"Nome"),el("input",{placeholder:"Ex: Club Nails Brasil",value:state.bizName,onInput:e=>state.bizName=e.target.value})]),el("div",{},[el("div",{className:"label"},"Segmento"),el("input",{placeholder:"Ex: Beleza",value:state.bizSeg,onInput:e=>state.bizSeg=e.target.value})])]),el("div",{className:"label"},"Descrição"),el("textarea",{rows:2,placeholder:"O que você oferece...",value:state.bizDesc,onInput:e=>state.bizDesc=e.target.value})]),el("div",{className:"card"},[el("div",{className:"card-title"},[el("span",{},"2"),"Público Alvo"]),el("div",{className:"targets"},TARGETS.map(t=>el("span",{className:"target-item"+(state.selT===t.v?" active":""),onClick:()=>{state.selT=t.v;state.custT="";render();}},t.e+" "+t.l))),el("input",{placeholder:"Ou descreva seu público...",value:state.custT,onInput:e=>{state.custT=e.target.value;state.selT="";render();}})])]),el("div",{className:"card"},[el("div",{className:"card-title"},[el("span",{},"3"),"Mensagem"]),el("button",{className:"btn btn-purple",style:{marginBottom:12},onClick:gerarMensagem},"✨ Gerar mensagem com IA"),el("div",{className:"label"},"Mensagem"),el("textarea",{rows:6,placeholder:"Escreva ou gere...",value:state.message,onInput:e=>state.message=e.target.value}),el("div",{className:"preview",style:{marginTop:12}},[el("div",{className:"preview-msg"},state.message||"Preview...")])])]),el("div",{className:"card"},[el("div",{className:"card-title"},[el("span",{},"4"),"Configurações"]),el("div",{className:"slider-container"},[el("div",{className:"label"},"Mensagens por dia: ",el("span",{className:"slider-value"},state.qty)),el("input",{type:"range",min:5,max:50,value:state.qty,onInput:e=>{state.qty=parseInt(e.target.value);render();}})]),el("div",{className:"slider-container"},[el("div",{className:"label"},"Pausa: ",el("span",{className:"slider-value"},state.pause+"s")),el("input",{type:"range",min:30,max:180,value:state.pause,onInput:e=>{state.pause=parseInt(e.target.value);render();}})]),el("div",{className:"stats"},[el("span",{style:{fontSize:13,color:G.muted}},"📋 Coletor: "+state.leads.length+" | 📁 CSV: "+state.csvLeads.length+" | Total: "+all.length)])]),el("button",{className:"btn btn-green",style:{padding:18,fontSize:16,fontWeight:900},onClick:iniciarCampanha,disabled:state.running||!state.message||!all.length},"▶  Iniciar Campanha"),state.logs.length>0?el("div",{style:{marginTop:16}},[el("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:8}},[el("span",{style:{color:G.muted}},"Enviadas"),el("span",{style:{fontSize:20,fontWeight:800,color:G.green}},state.sent+" / "+state.qty)]),el("div",{className:"progress-bar"},[el("div",{className:"progress-fill",style:{width:(state.sent/state.qty*100)+"%"}})]),el("div",{className:"log-container"},state.logs.map(l=>el("div",{className:"log-item"},[el("span",{className:"log-time"},l.t),el("span",{className:l.type==="ok"?"log-ok":l.type==="err"?"log-err":"log-info"},l.text)]))),state.running?el("button",{className:"btn btn-danger",style:{marginTop:10},onClick:()=>state.running=false},"⏹ Parar"):null]):null]);
+}
+
+async function gerarMensagem(){
+  if(!state.bizName){alert("Preencha o nome do negócio.");return;}
+  try{
+    const target=state.selT||state.custT||"profissionais em geral";
+    const p=`Crie uma mensagem de prospecção para WhatsApp com no máximo 200 palavras.\nNegócio: ${state.bizName} | Segmento: ${state.bizSeg||"não informado"} | Descrição: ${state.bizDesc||"não informado"} | Público: ${target}\nRequisitos: saudação amigável, apresentação breve, benefício principal, CTA claro, emojis moderados, português brasileiro.\nRetorne APENAS a mensagem.`;
+    state.message=await callAI(p);render();
+  }catch(e){alert("Erro: "+e.message);}
+}
+
+async function iniciarCampanha(){
+  const all=[...state.leads,...state.csvLeads];
+  if(!state.message||!all.length){alert("Adicione leads e mensagem.");return;}
+  state.running=true;state.sent=0;state.logs=[];
+  addLog("Campanha iniciada! "+all.length+" leads.");
+  const pk=phoneKey(all[0]);let s=0;
+  for(let i=0;i<all.length&&s<state.qty&&state.running;i++){
+    const phone=fmtPhone(all[i][pk]||all[i].telefone||"");
+    if(phone.length<12){addLog("Inválido: "+phone,"err");continue;}
+    addLog("Enviando para "+phone+"...");
+    window.open("https://web.whatsapp.com/send?phone="+phone+"&text="+encodeURIComponent(state.message),"_blank");
+    s++;state.sent=s;addLog("✅ WhatsApp ("+s+"/"+state.qty+")","ok");
+    if(s<state.qty&&i<all.length-1&&state.running){addLog("⏳ "+state.pause+"s...");await sleep(state.pause*1000);}
+  }
+  addLog(state.running?"🏁 Concluído! "+s:"🛑 Parado.",state.running?"ok":"err");
+  state.running=false;render();
+}
+
+function addLog(text,type){
+  const t=new Date().toLocaleTimeString("pt-BR");
+  state.logs.push({text,type,t});render();
+}
+
+function renderHistorico(){
+  const camps=DB.get("automsg_camps_"+state.user.email)||[];
+  return el("div",{style:{maxWidth:720,margin:"0 auto",padding:"0 14px"}},[camps.length?el("div",{style:{fontSize:13,color:G.muted,marginBottom:12}},camps.length+" campanha(s)"):null,...(camps.length?camps.slice().reverse():[{bizName:"Nenhuma campanha ainda.",date:new Date().toISOString(),sent:0,message:"",target:"-"}]).map(c=>el("div",{className:"card"},[el("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:10}},[el("div",{},[el("div",{style:{fontWeight:600}},c.bizName),el("div",{style:{fontSize:11,color:G.muted,marginTop:2}},new Date(c.date).toLocaleString("pt-BR"))]),el("span",{style:{background:G.gdim,border:`1px solid ${G.gglow}`,color:G.green,borderRadius:100,fontSize:11,padding:"3px 10px"}},c.sent+" enviadas")]),el("div",{style:{fontSize:12,color:G.muted,whiteSpace:"pre-wrap"}},c.message?c.message.substring(0,100)+"...":"")]))]);
+}
+
+render();
+</script>
+</body>
+</html>

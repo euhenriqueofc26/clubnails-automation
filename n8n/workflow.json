@@ -1,0 +1,42 @@
+{
+  "name": "Club Nails Automation",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "1",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base manualTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Processar leads do banco de dados\nreturn items;"
+      },
+      "id": "2",
+      "name": "Process Leads",
+      "type": "n8n-nodes-base function",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.whatsapp.com/send",
+        "method": "POST"
+      },
+      "id": "3",
+      "name": "Send WhatsApp",
+      "type": "n8n-nodes-base httpRequest",
+      "typeVersion": 3,
+      "position": [650, 300]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [[{"node": "Process Leads", "type": "main", "index": 0}]]
+    },
+    "Process Leads": {
+      "main": [[{"node": "Send WhatsApp", "type": "main", "index": 0}]]
+    }
+  }
+}

@@ -1,0 +1,6 @@
+chrome_user_data/
+.env
+*.db
+*.log
+node_modules/
+.DS_Store
