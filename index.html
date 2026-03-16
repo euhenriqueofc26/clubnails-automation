@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoMsg Pro</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0a0a0f;color:#e8e8f0;font-family:system-ui,sans-serif;min-height:100vh}
+.inp{background:#1a1a26;border:1px solid #2a2a3e;border-radius:10px;color:#e8e8f0;font-family:inherit;font-size:14px;padding:10px 13px;outline:none;width:100%;box-sizing:border-box}
+.inp:focus{border-color:#00e5a0}
+.card{background:#12121a;border:1px solid #2a2a3e;border-radius:16px;padding:18px;margin-bottom:12px}
+.btn{border:none;border-radius:11px;padding:11px 16px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;width:100%}
+.btn-green{background:#00e5a0;color:#0a0f0a}
+.btn-purple{background:linear-gradient(135deg,#1a1a2e,#16213e);border:1px solid #3a3a5e;color:#a78bfa}
+.btn-ghost{background:transparent;border:1px solid #2a2a3e;color:#e8e8f0}
+.tab-btn{flex:1;padding:10px 0;border-radius:12px;cursor:pointer;font-size:12px;border:1px solid #2a2a3e;background:#12121a;color:#6b6b8a}
+.tab-btn.active{background:#00e5a0;color:#0a0f0a;border-color:transparent;font-weight:700}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+const DB={get:k=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):null;}catch(e){return null;}},set:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}};
+let state={user:DB.get('automsg_session'),tab:0};
+
+function render(){
+  document.getElementById('app').innerHTML=state.user?renderApp():renderLogin();
+}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');}
+
+function renderLogin(){
+  return `<div style="min-height:100vh;background:#0a0a0f;display:flex;align-items:center;justify-content:center;padding:20px">
+    <div style="width:100%;max-width:400px">
+      <div style="text-align:center;margin-bottom:28px">
+        <div style="font-size:40px;font-weight:900">Auto<span style="color:#00e5a0">Msg</span> <span style="font-size:16px;color:#6b6b8a">Pro</span></div>
+        <div style="color:#6b6b8a;font-size:13px;margin-top:8px">Plataforma de prospecção</div>
+      </div>
+      <div class="card" style="padding:28px">
+        <input class="inp" id="email" placeholder="Email" style="margin-bottom:12px">
+        <input class="inp" id="pass" type="password" placeholder="Senha" style="margin-bottom:12px">
+        <button class="btn btn-green" onclick="doLogin()">Entrar</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function doLogin(){
+  const email=document.getElementById('email').value;
+  const pass=document.getElementById('pass').value;
+  if(!email||!pass){alert('Preencha email e senha');return;}
+  const users=DB.get('automsg_users')||{};
+  const u=users[email];
+  if(!u||u.pass!==pass){alert('Email ou senha incorretos');return;}
+  state.user={name:u.name,email};DB.set('automsg_session',state.user);render();
+}
+
+function renderApp(){
+  return `<div style="background:#0a0a0f;min-height:100vh;padding:20px">
+    <div style="max-width:720px;margin:0 auto">
+      <div style="display:flex;justify-content:space-between;margin-bottom:16px">
+        <div style="font-size:28px;font-weight:900">Auto<span style="color:#00e5a0">Msg</span> Pro</div>
+        <button onclick="doLogout()" style="background:none;border:1px solid #2a2a3e;color:#6b6b8a;padding:6px 12px;border-radius:8px;cursor:pointer">Sair</button>
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:16px">
+        <button class="tab-btn ${state.tab===0?'active':''}" onclick="state.tab=0;render()">📋 Coletor</button>
+        <button class="tab-btn ${state.tab===1?'active':''}" onclick="state.tab=1;render()">📤 Disparador</button>
+        <button class="tab-btn ${state.tab===2?'active':''}" onclick="state.tab=2;render()">📊 Histórico</button>
+      </div>
+      ${state.tab===0?renderColetor():state.tab===1?renderDisparador():renderHistorico()}
+    </div>
+  </div>`;
+}
+
+function doLogout(){DB.set('automsg_session',null);state.user=null;render();}
+
+function renderColetor(){
+  return `<div class="card"><div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b6b8a;margin-bottom:14px">1 Colar Dados do Google Maps</div>
+  <textarea class="inp" id="raw" rows="7" placeholder="Cole aqui os dados do Maps..." style="margin-bottom:12px"></textarea>
+  <button class="btn btn-purple" onclick="doExtrair()">✨ Extrair com IA</button></div>`;
+}
+
+async function doExtrair(){
+  const raw=document.getElementById('raw').value;
+  if(!raw){alert('Cole o texto primeiro');return;}
+  try{
+    const r=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:[{role:'user',content:'Extraia JSON: [{nome,telefone}]. '+raw}]})});
+    const d=await r.json();
+    alert('Extraído! (mock)');
+  }catch(e){alert('Erro: '+e.message);}
+}
+
+function renderDisparador(){
+  return `<div class="card"><div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b6b8a;margin-bottom:14px">1 Seu Negócio</div>
+  <input class="inp" id="bizName" placeholder="Nome do negócio" style="margin-bottom:12px">
+  <button class="btn btn-green" onclick="alert('Em desenvolvimento')">▶ Iniciar Campanha</button></div>`;
+}
+
+function renderHistorico(){
+  return `<div class="card"><div style="text-align:center;padding:24px;color:#6b6b8a">📭 Nenhuma campanha ainda</div></div>`;
+}
+
+render();
+</script>
+</body>
+</html>
