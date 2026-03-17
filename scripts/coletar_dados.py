@@ -5,8 +5,8 @@ from playwright.sync_api import sync_playwright
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.database import add_lead, init_db, get_leads_count, lead_exists
 
-CIDADES = ["São Paulo, SP"]
-SEGMENTOS = ["manicure"]
+CIDADES = ["São Paulo, SP", "São Caetano do Sul, SP", "São Bernardo do Campo, SP", "Santo André, SP", "Osasco, SP"]
+SEGMENTOS = ["manicure", "studio de unha", "nails designers", "lash design", "unhas em gel", "alongamento de unhas"]
 
 def delay(s=2):
     time.sleep(random.uniform(s, s+1))
@@ -27,28 +27,15 @@ def coletar(segmento, cidade):
             '--disable-blink-features=AutomationControlled',
             '--disable-dev-shm-usage',
             '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-web-security',
-            '--disable-features=IsolateOrigins,site-per-process',
-            '--allow-running-insecure-content',
-            '--disable-gpu',
-            '--no-zygote',
-            '--single-process',
         ]
     )
     
     context = browser.new_context(
         viewport={'width': 1400, 'height': 900},
-        user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        locale='pt-BR',
-        timezone_id='America/Sao_Paulo',
-        permissions=['geolocation'],
+        user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
     )
     
     page = context.new_page()
-    
-    # Bloqueia recursos pesados
-    page.route('**/*.{png,jpg,jpeg,gif,svg,css,woff,woff2}', lambda route: route.abort())
     
     try:
         url = f"https://www.google.com/maps/search/{segmento}+{cidade.replace(' ', '+')}"
@@ -57,79 +44,109 @@ def coletar(segmento, cidade):
         page.goto(url, wait_until="domcontentloaded", timeout=45000)
         delay(5)
         
-        print("Aguardando carregar...")
+        print("Aguardando resultados...")
         
-        # Espera aparecer resultados
-        page.wait_for_selector('div.Nv2PK, div.section-result', timeout=15000)
+        # Espera resultados
+        try:
+            page.wait_for_selector('div.Nv2PK', timeout=10000)
+        except:
+            pass
+        
+        delay(3)
         
         print("Scrollando...")
         
-        # Scroll
-        for _ in range(20):
-            page.mouse.wheel(0, 600)
-            delay(0.5)
+        # Scroll para carregar mais resultados
+        for _ in range(30):
+            page.mouse.wheel(0, 500)
+            delay(0.3)
         
         delay(2)
         
-        # Pega resultados
+        # Pega todos os resultados
         cards = page.query_selector_all('div.Nv2PK')
+        print(f"Encontrados: {len(cards)} resultados")
         
-        if not cards:
-            cards = page.query_selector_all('div.section-result')
-        
-        if not cards:
-            cards = page.query_selector_all('a[href*="/maps/place/"]')
-        
-        print(f"Encontrados: {len(cards)}")
-        
-        for i, card in enumerate(cards[:30]):
+        for i, card in enumerate(cards):
             try:
                 nome = ''
                 telefone = ''
+                instagram = ''
+                endereco = ''
                 
-                # Nome
-                for sel in ['div.fontHeadlineSmall', 'h3', '.section-result-title']:
+                # Pega nome
+                try:
+                    nome = card.query_selector('div.fontHeadlineSmall').inner_text()
+                except:
                     try:
-                        el = card.query_selector(sel)
-                        if el:
-                            nome = el.inner_text().strip()
-                            if nome: break
-                    except: pass
+                        nome = card.query_selector('h3').inner_text()
+                    except:
+                        continue
                 
                 if not nome: continue
                 
-                print(f"[{i+1}] {nome[:30]}...", end=" ")
+                print(f"[{i+1}] {nome[:35]}...", end=" ")
                 
-                # Clique
+                # Clique no card para abrir detalhes
                 try:
                     card.click()
-                    delay(2)
-                except: pass
+                    delay(2.5)
+                except:
+                    pass
                 
-                # Telefone
-                content = page.content()
-                tels = re.findall(r'(?:\+?55)?\s*\(?\d{2}\)?\s*\d{4,5}[-\s]?\d{4}', content)
-                for t in tels[:3]:
-                    tel = limpar_telefone(t)
-                    if tel and len(tel) >= 10:
-                        telefone = tel
+                # Pega informações da página
+                page_text = page.inner_text()
+                
+                # Procura telefone
+                # Formatos: (11) 99999-9999, 11999999999, +55 11 99999-9999
+                telefones = re.findall(
+                    r'(?:\+?55\s?)?(?:\(?\d{2}\)?\s?)?\d{4,5}[-\s]?\d{4}',
+                    page_text
+                )
+                
+                for tel in telefones:
+                    tel_limpo = limpar_telefone(tel)
+                    if tel_limpo and len(tel_limpo) >= 10:
+                        telefone = tel_limpo
                         break
+                
+                # Procura Instagram
+                links = page.query_selector_all('a[href*="instagram"]')
+                for link in links:
+                    try:
+                        href = link.get_attribute('href')
+                        if href and 'instagram.com' in href:
+                            instagram = href
+                            break
+                    except:
+                        pass
+                
+                # Procura endereço
+                try:
+                    ends = page.query_selector_all('span[jpo="3"]')
+                    if ends:
+                        endereco = ends[0].inner_text()
+                except:
+                    pass
                 
                 if telefone:
                     if lead_exists(telefone):
-                        print("dup")
+                        print(f"dup")
                     else:
-                        add_lead(nome, telefone, '', segmento, f"GM-{cidade}")
+                        add_lead(nome, telefone, endereco, segmento, f"GM-{cidade}", instagram)
                         novos += 1
-                        print(f"✓ {telefone}")
+                        print(f"✓ {telefone} | Insta: {instagram[:20] if instagram else '-'}")
                 else:
-                    print("sem tel")
+                    print(f"sem tel")
                 
-                delay(1)
+                delay(1.5)
                 
-                try: 
+                # Fecha popup
+                try:
                     page.keyboard.press('Escape')
-                except: pass
+                except:
+                    pass
+                delay(0.5)
                     
             except Exception as e:
                 continue
@@ -146,21 +163,25 @@ def coletar(segmento, cidade):
 
 def run():
     print("\n" + "="*50)
-    print("COLETA DE LEADS")
+    print("COLETA DE LEADS - CLUB NAILS")
     print("="*50)
     
     init_db()
     
+    total = 0
     for seg in SEGMENTOS:
         for cid in CIDADES:
             try:
                 n = coletar(seg, cid)
-                print(f"Total: {get_leads_count()}")
+                total += n
+                print(f"\nParcial: {get_leads_count()} leads | Novos: {total}")
             except Exception as e:
                 print(f"Erro: {e}")
                 continue
     
-    print(f"\nFINAL: {get_leads_count()}")
+    print(f"\n{'='*50}")
+    print(f"FINAL: {get_leads_count()} leads")
+    print("="*50)
 
 if __name__ == "__main__":
     run()
