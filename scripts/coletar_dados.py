@@ -3,203 +3,128 @@ import sys
 import time
 import random
 from datetime import datetime
-from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
+from playwright.sync_api import sync_playwright
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.database import add_lead, init_db, get_leads_count, lead_exists, DB_PATH
 
-CIDADES_SP = [
+CIDADES = [
     "São Paulo, SP",
     "São Caetano do Sul, SP",
     "São Bernardo do Campo, SP",
     "Santo André, SP",
     "Osasco, SP",
     "Guarulhos, SP",
-    "Campinas, SP",
-    "Santos, SP",
-    "São José dos Campos, SP",
-    "Ribeirão Preto, SP",
-    "Sorocaba, SP",
-    "Mauá, SP",
-    "Mogi das Cruzes, SP",
-    "Diadema, SP",
-    "Carapicuíba, SP",
-    "Cotia, SP",
-    "Itaquaquecetuba, SP",
-    "Suzano, SP",
-    "Poá, SP",
-    "Ferraz de Vasconcelos, SP"
+    "Campinas, SP"
 ]
 
 SEGMENTOS = [
     "nails designers",
-    "manicure",
+    "manicure", 
     "studio de unha",
     "lash design",
-    "Nail Designers",
     "unhas em gel",
     "alongamento de unhas",
-    "esmaltaria",
-    "studio manicure",
-    "salão de beleza",
-    "unhas decoradas",
-    "manicure e pedicure",
-    "beleza e estética",
-    "studio beleza",
-    "espaço uñas"
+    "esmaltaria"
 ]
 
-def delay(min_sec=1, max_sec=2):
-    time.sleep(random.uniform(min_sec, max_sec))
+def delay(s=1):
+    time.sleep(random.uniform(s, s+1))
 
 def limpar_telefone(tel):
     if not tel:
         return ''
     return ''.join(c for c in str(tel) if c.isdigit())
 
-def coletar_segmento_cidade(segmento, cidade, max_leads=100):
-    print(f"\n  >> {segmento} em {cidade}...")
+def coletar(segmento, cidade, max_leads=50):
+    print(f"\n>> {segmento} em {cidade}")
     
-    total_novos = 0
-    duplicados = 0
+    novos = 0
+    dup = 0
     
-    playwright = sync_playwright().start()
-    browser = playwright.chromium.launch(
-        headless=False,
-        args=['--disable-blink-features=AutomationControlled']
-    )
-    context = browser.new_context(
-        viewport={'width': 1920, 'height': 1080},
-        user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-    )
-    page = context.new_page()
+    pw = sync_playwright().start()
+    browser = pw.chromium.launch(headless=False)
+    page = browser.new_page()
     
     try:
-        search = f"{segmento} {cidade}"
-        url = f"https://www.google.com/maps/search/{search.replace(' ', '+')}"
+        url = f"https://www.google.com/maps/search/{segmento}+{cidade}"
+        print(f"Abrindo: {url}")
+        page.goto(url)
+        delay(5)
         
-        page.goto(url, wait_until="networkidle", timeout=60000)
-        delay(3, 5)
+        print("Procurando resultados...")
         
-        scrolls = 0
-        max_scrolls = 30
+        for _ in range(15):
+            page.mouse.wheel(0, 2000)
+            delay(1)
         
-        while scrolls < max_scrolls:
-            page.mouse.wheel(0, random.randint(2000, 3000))
-            delay(1, 2)
-            scrolls += 1
-            
+        delay(3)
+        
+        cards = page.query_selector_all('div[role="article"]')
+        print(f"Encontrados {len(cards)} resultados")
+        
+        for i, card in enumerate(cards[:max_leads]):
             try:
-                mais = page.locator('button:has-text("Mais resultados")')
-                if mais.is_visible():
-                    mais.click()
-                    delay(1, 2)
-            except:
-                pass
-        
-        delay(2, 3)
-        
-        listings = page.locator('a[href*="/maps/place/"]').all()
-        print(f"    Encontrados {len(listings)} links")
-        
-        for listing in listings[:max_leads]:
-            try:
-                href = listing.get_attribute('href')
-                if not href or '/maps/place/' not in href:
-                    continue
-                
-                page.goto(href, wait_until="networkidle", timeout=30000)
-                delay(2, 3)
-                
                 nome = ''
+                telefone = ''
+                instagram = ''
+                endereco = ''
+                
                 try:
-                    nome = page.locator('h1').inner_text(timeout=5000)
+                    nome_elem = card.query_selector('div.fontTitleSmall')
+                    if nome_elem:
+                        nome = nome_elem.inner_text()
                 except:
                     pass
                 
                 if not nome:
-                    try:
-                        nome = page.locator('div[data-item-id="title"]').inner_text(timeout=3000)
-                    except:
-                        continue
+                    continue
                 
-                telefone = ''
-                instagram = ''
-                site = ''
-                endereco = ''
-                
-                botoes_tel = page.locator('button[aria-label*="Telefone"], button[aria-label*="Phone"]').all()
-                for btn in botoes_tel[:3]:
-                    try:
-                        btn.click()
-                        delay(1, 1.5)
-                        tel_text = btn.inner_text()
-                        if any(c.isdigit() for c in tel_text):
-                            telefone = limpar_telefone(tel_text)
-                            break
-                    except:
-                        pass
-                
-                if not telefone:
-                    spans = page.locator('span').all()
-                    for span in spans[:50]:
-                        try:
-                            txt = span.inner_text()
-                            if len(txt) >= 10 and len(txt) <= 15 and txt.replace(' ', '').replace('-', '').replace('(', '').replace(')', '').isdigit():
-                                telefone = limpar_telefone(txt)
-                                break
-                        except:
-                            pass
-                
-                links = page.locator('a[href*="instagram.com"]').all()
-                for link in links[:3]:
-                    try:
-                        href = link.get_attribute('href')
-                        if href:
-                            instagram = href
-                            break
-                    except:
-                        pass
-                
-                if not instagram:
-                    links = page.locator('a').all()
-                    for link in links[:30]:
-                        try:
-                            txt = link.inner_text().lower()
-                            if 'instagram' in txt or (txt.startswith('@') and len(txt) > 3):
-                                href = link.get_attribute('href')
-                                if href and 'http' in href:
-                                    instagram = href
-                                    break
-                        except:
-                            pass
+                print(f"[{i+1}] {nome[:30]}...")
                 
                 try:
-                    ends = page.locator('span[jpo="3"]').all()
-                    if ends:
-                        endereco = ends[0].inner_text()
+                    card.click()
+                    delay(2)
                 except:
                     pass
                 
-                if nome and telefone:
+                page_content = page.content()
+                
+                import re
+                tels = re.findall(r'\(?\d{2}\)?\s?\d{4,5}[-\s]?\d{4}', page_content)
+                for tel in tels:
+                    if len(tel.replace(' ','').replace('-','').replace('(','').replace(')','')) >= 10:
+                        telefone = limpar_telefone(tel)
+                        break
+                
+                instas = re.findall(r'instagram\.com/[\w\.]+', page_content)
+                if instas:
+                    instagram = 'https://' + instas[0]
+                
+                if telefone:
                     if lead_exists(telefone):
-                        duplicados += 1
-                        print(f"    Duplicado: {nome[:30]}...")
+                        dup += 1
+                        print(f"  duplicado")
                         continue
                     
                     add_lead(nome, telefone, endereco, segmento, f"Google Maps - {cidade}", instagram)
-                    total_novos += 1
-                    print(f"    ✓ {nome[:35]}... - {telefone}")
-                elif nome:
-                    print(f"    - {nome[:35]}... (sem telefone)")
+                    novos += 1
+                    print(f"  ✓ {telefone}")
+                else:
+                    print(f"  sem telefone")
                 
-                delay(1, 2)
+                delay(1)
                 
+                try:
+                    page.keyboard.press('Escape')
+                except:
+                    pass
+                    
             except Exception as e:
                 continue
         
     except Exception as e:
-        print(f"    Erro: {e}")
+        print(f"Erro: {e}")
     
     finally:
         try:
@@ -207,47 +132,37 @@ def coletar_segmento_cidade(segmento, cidade, max_leads=100):
         except:
             pass
         try:
-            playwright.stop()
+            pw.stop()
         except:
             pass
     
-    return total_novos, duplicados
+    return novos, dup
 
-def run_full_collection():
-    print(f"\n{'#'*60}")
-    print("# COLETA DE LEADS - CLUB NAILS BRASIL")
-    print(f"# Sem duplicatas - Apenas telefones únicos")
-    print(f"{'#'*60}")
-    print(f"Início: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    
-    if os.path.exists(DB_PATH):
-        os.remove(DB_PATH)
+def run():
+    print("\n" + "="*50)
+    print("COLETA DE LEADS - CLUB NAILS")
+    print("="*50)
+    print(f"Inicio: {datetime.now()}")
     
     init_db()
     
     total_novos = 0
-    total_duplicados = 0
+    total_dup = 0
     
-    for segmento in SEGMENTOS:
-        for cidade in CIDADES_SP:
+    for seg in SEGMENTOS:
+        for cid in CIDADES:
             try:
-                novos, dup = coletar_segmento_cidade(segmento, cidade, max_leads=80)
-                total_novos += novos
-                total_duplicados += dup
-                
-                atual = get_leads_count()
-                print(f"\n    >> Total: {atual} leads | Novos: {total_novos} | Duplicados: {total_duplicados}")
-                
+                n, d = coletar(seg, cid, 50)
+                total_novos += n
+                total_dup += d
+                print(f"\nTotal: {get_leads_count()} | Nov: {total_novos} | Dup: {total_dup}")
             except Exception as e:
-                print(f"    Erro em {segmento}/{cidade}: {e}")
+                print(f"Erro em {seg}/{cid}: {e}")
                 continue
     
-    print(f"\n{'#'*60}")
-    print(f"COLETA FINALIZADA!")
-    print(f"Total novos: {total_novos}")
-    print(f"Total duplicados ignorados: {total_duplicados}")
-    print(f"Total no banco: {get_leads_count()}")
-    print(f"{'#'*60}")
+    print("\n" + "="*50)
+    print(f"FINALIZADO! Total: {get_leads_count()}")
+    print("="*50)
 
 if __name__ == "__main__":
-    run_full_collection()
+    run()
