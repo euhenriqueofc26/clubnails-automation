@@ -3,7 +3,7 @@ from datetime import datetime
 from playwright.sync_api import sync_playwright
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from utils.database import add_lead, init_db, get_leads_count, lead_exists, DB_PATH
+from utils.database import add_lead, init_db, get_leads_count, lead_exists
 
 CIDADES = ["São Paulo, SP", "São Caetano do Sul, SP", "São Bernardo do Campo, SP"]
 SEGMENTOS = ["manicure", "studio de unha", "nails designers"]
@@ -20,56 +20,93 @@ def coletar(segmento, cidade):
     novos = 0
     
     pw = sync_playwright().start()
-    browser = pw.chromium.launch(headless=False)
+    browser = pw.chromium.launch(headless=False, args=['--start-maximized'])
     page = browser.new_page()
+    page.set_viewport_size({'width': 1920, 'height': 1080})
     
     try:
         url = f"https://www.google.com/maps/search/{segmento}+{cidade}"
-        page.goto(url)
+        print(f"Abrindo: {url}")
+        page.goto(url, wait_until="domcontentloaded", timeout=30000)
         delay(5)
         
-        for _ in range(10):
-            page.mouse.wheel(0, 1500)
-            delay(1)
+        print("Scrollando...")
         
-        delay(2)
+        # Scroll lento e gradual
+        for scrol in range(25):
+            page.mouse.wheel(0, random.randint(800, 1200))
+            delay(0.8)
+            
+            # Tenta carregar mais resultados
+            try:
+                mais = page.query_selector('button:has-text("Mais resultados")')
+                if mais and mais.is_visible():
+                    mais.click()
+                    delay(1)
+            except:
+                pass
         
-        cards = page.query_selector_all('div.Nv2PK')
-        print(f"Encontrados: {len(cards)}")
+        delay(3)
         
-        for i, card in enumerate(cards[:30]):
+        # Pega todos os resultados
+        selectors = [
+            'div.Nv2PK',
+            'div[data-cel-id]', 
+            'a[href*="/maps/place/"]',
+            '.section-result'
+        ]
+        
+        cards = []
+        for sel in selectors:
+            cards = page.query_selector_all(sel)
+            if len(cards) > 5:
+                print(f"Encontrados: {len(cards)} com seletor: {sel}")
+                break
+        
+        print(f"Total de cards: {len(cards)}")
+        
+        for i, card in enumerate(cards[:50]):
             try:
                 nome = ''
                 telefone = ''
                 
-                try:
-                    nome = card.query_selector('div.fontHeadlineSmall').inner_text()
-                except:
+                # Tenta várias formas de pegar o nome
+                for sel_nome in ['div.fontHeadlineSmall', 'h3', 'div.section-result-title', 'span']:
                     try:
-                        nome = card.query_selector('span.jxcore').inner_text()
+                        el = card.query_selector(sel_nome)
+                        if el:
+                            nome = el.inner_text().strip()
+                            if nome and len(nome) > 2:
+                                break
                     except:
-                        continue
+                        pass
                 
-                if not nome: continue
+                if not nome or len(nome) < 3:
+                    continue
                 
-                print(f"[{i+1}] {nome[:35]}...", end=" ")
+                print(f"[{i+1}] {nome[:30]}...", end=" ")
                 
+                # Clica no card
                 try:
                     card.click()
-                    delay(2)
-                except: pass
+                    delay(2.5)
+                except:
+                    pass
                 
+                # Procura telefone na página
                 content = page.content()
                 
-                tels = re.findall(r'\(?\d{2}\)?\s?\d{4,5}[-\s]?\d{4}', content)
-                for t in tels[:3]:
-                    if len(limpar_telefone(t)) >= 10:
-                        telefone = limpar_telefone(t)
+                # Regex para telefones brasileiros
+                tels = re.findall(r'(?:\+?55)?\s*\(?\d{2}\)?\s*\d{4,5}[-\s]?\d{4}', content)
+                for t in tels[:5]:
+                    tel_limpo = limpar_telefone(t)
+                    if tel_limpo and len(tel_limpo) >= 10:
+                        telefone = tel_limpo
                         break
                 
                 if telefone:
                     if lead_exists(telefone):
-                        print("duplicado")
+                        print("dup")
                     else:
                         add_lead(nome, telefone, '', segmento, f"GM-{cidade}")
                         novos += 1
@@ -77,9 +114,14 @@ def coletar(segmento, cidade):
                 else:
                     print("sem tel")
                 
-                delay(1)
-                try: page.keyboard.press('Escape')
-                except: pass
+                delay(1.5)
+                
+                #Fecha popup
+                try:
+                    page.keyboard.press('Escape')
+                    delay(0.5)
+                except:
+                    pass
                     
             except Exception as e:
                 continue
@@ -107,7 +149,7 @@ def run():
             try:
                 n = coletar(seg, cid)
                 total += n
-                print(f"Total: {get_leads_count()}")
+                print(f"Total: {get_leads_count()} | Novos: {n}")
             except Exception as e:
                 print(f"Erro: {e}")
                 continue
