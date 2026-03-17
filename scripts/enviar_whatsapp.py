@@ -5,7 +5,6 @@ import random
 import webbrowser
 from datetime import datetime
 from urllib.parse import quote
-import pandas as pd
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.database import get_all_leads, get_leads_count
